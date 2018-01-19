@@ -1,0 +1,16 @@
+{
+  "name": "readmf1k",
+  "version": "1.0.0",
+  "description": "lol",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "linuxgemini",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.12.2",
+    "nfc-pcsc": "^0.6.1"
+  },
+  "preferGlobal": true,
+  "bin": "./index.js"
+}
