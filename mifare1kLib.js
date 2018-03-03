@@ -21,8 +21,7 @@ class mf1k {
     callForEmergentInit(re) {
         this.keys = [
             "000000000000",
-            "FFFFFFFFFFFF",
-            "FED012345678"
+            "FFFFFFFFFFFF"
         ],
         this.importantBlocks = [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63],
         this.reader = re.reader,
@@ -203,7 +202,7 @@ class mf1k {
     }
 }
 
-class utils extends mf1k {
+class utils {
     static convertUint8toHexStr(uint8arr) {
         if (!uint8arr) {
             return "";
