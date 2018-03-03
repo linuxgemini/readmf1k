@@ -1,5 +1,6 @@
 /**
- * Initial non-event based code.
+ * WIP Mifare Classic 1K Library
+ * I should've checked my grammar first.
  * @author İlteriş Eroğlu
  */
 
