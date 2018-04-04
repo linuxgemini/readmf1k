@@ -3,15 +3,18 @@
  * @author İlteriş Eroğlu
  */
 
-const { KEY_TYPE_A, KEY_TYPE_B } = require("nfc-pcsc");
+const {
+    KEY_TYPE_A,
+    KEY_TYPE_B
+} = require("nfc-pcsc");
 
 
 class mf1k {
     constructor(opts) {
-        this.keys = null,
-        this.authedBlocks = null,
-        this.reader = null,
-        this.importantBlocks = null,
+        this.keys = null;
+        this.authedBlocks = null;
+        this.reader = null;
+        this.importantBlocks = null;
         this.accessData = null;
         if (typeof (opts) !== "object") throw new Error("Options is not provided, or the options parameter is not an object. (opts not object)");
         if (!opts.reader) throw new Error("Options doesn't have a reader in it. (no opts.reader)");
@@ -21,12 +24,11 @@ class mf1k {
     callForEmergentInit(re) {
         this.keys = [
             "000000000000",
-            "FFFFFFFFFFFF",
-            "FED012345678"
-        ],
-        this.importantBlocks = [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63],
-        this.reader = re.reader,
-        this.authedBlocks = {},
+            "FFFFFFFFFFFF"
+        ];
+        this.importantBlocks = [3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63];
+        this.reader = re.reader;
+        this.authedBlocks = {};
         this.accessData = {};
         if (re.keys && Array.isArray(re.keys) && re.keys.length > 0) {
             for (const thekey of re.keys) {
@@ -52,7 +54,12 @@ class mf1k {
             } else {
                 cache = null;
             }
-            var newObj = {[index]: {...cache, [type]: key}};
+            var newObj = {
+                [index]: {
+                    ...cache,
+                    [type]: key
+                }
+            };
             Object.assign(this.authedBlocks, newObj);
             resolve(true);
         });
@@ -78,7 +85,9 @@ class mf1k {
                             try {
                                 await this.reader.authenticate(i, KEY_TYPE_B, sheep);
                                 await this.insertKey(i, "b", sheep);
-                            } catch (e) { continue; }
+                            } catch (e) {
+                                continue;
+                            }
                         }
                     }
                 }
@@ -95,7 +104,7 @@ class mf1k {
                     if (!this.authedBlocks[block]["a"]) throw new Error(`The block ${block} doesn't have the key A.`);
                     await this.reader.authenticate(block, KEY_TYPE_A, this.authedBlocks[block]["a"]);
                     var cardData = await this.reader.read(block, 16, 16),
-                        accessCondition = cardData.slice(6).slice(0,-7);
+                        accessCondition = cardData.slice(6).slice(0, -7);
                     if (accessCondition.readUIntBE(0, 3) === 0x000000) throw new Error(`Failed to get the access conditions of block ${block}.`);
                     var acObj = utils.convertAC(accessCondition, block);
                     Object.assign(this.accessData, acObj);
@@ -135,55 +144,55 @@ class mf1k {
                 var keyToUse = (!keyA ? keyB : keyA);
                 var keyType = (!keyA ? KEY_TYPE_B : KEY_TYPE_A);
                 switch (readingKey) {
-                case 0:
-                    try {
-                        await this.reader.authenticate(index, keyType, keyToUse);
-                        var cardData = await this.reader.read(index, 16, 16);
-                        if (isSectorTrailer) {
-                            if (keyA) cardData = utils.convertHexStrtoBuffer(`${keyA}${utils.fastconvertBuffertoHexStr(cardData).slice(12)}`);
-                            if (keyB && (this.accessData[index].kbr === -1 || (!keyA && this.accessData[index].kbr === 1))) cardData = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}${keyB}`);
-                            if (!keyB && this.accessData[index].kbr === -1) cardData = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}00`);
-                            if (!keyA) cardData = utils.convertHexStrtoBuffer(`00${utils.fastconvertBuffertoHexStr(cardData).slice(12)}`);
+                    case 0:
+                        try {
+                            await this.reader.authenticate(index, keyType, keyToUse);
+                            var cardData = await this.reader.read(index, 16, 16);
+                            if (isSectorTrailer) {
+                                if (keyA) cardData = utils.convertHexStrtoBuffer(`${keyA}${utils.fastconvertBuffertoHexStr(cardData).slice(12)}`);
+                                if (keyB && (this.accessData[index].kbr === -1 || (!keyA && this.accessData[index].kbr === 1))) cardData = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}${keyB}`);
+                                if (!keyB && this.accessData[index].kbr === -1) cardData = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}00`);
+                                if (!keyA) cardData = utils.convertHexStrtoBuffer(`00${utils.fastconvertBuffertoHexStr(cardData).slice(12)}`);
+                            }
+                            returner.push(cardData);
+                        } catch (error) {
+                            utils.log(error);
+                            returner.push(Buffer.from([]));
+                            continue;
                         }
-                        returner.push(cardData);
-                    } catch (error) {
-                        utils.log(error);
-                        returner.push(Buffer.from([]));
-                        continue;
-                    }
-                    break;
-                case 1:
-                    try {
-                        if (!keyA) throw new Error("Couldn't find key A!");
-                        await this.reader.authenticate(index, KEY_TYPE_A, keyA);
-                        var cardDataTwo = await this.reader.read(index, 16, 16);
-                        if (isSectorTrailer) {
-                            cardDataTwo = utils.convertHexStrtoBuffer(`${keyA}${utils.fastconvertBuffertoHexStr(cardDataTwo).slice(12)}`);
-                            if (this.accessData[index].kbr === -1 && keyB) cardDataTwo = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}${keyB}`);
-                            if (!keyB && this.accessData[index].kbr === -1) cardDataTwo = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}00`);
+                        break;
+                    case 1:
+                        try {
+                            if (!keyA) throw new Error("Couldn't find key A!");
+                            await this.reader.authenticate(index, KEY_TYPE_A, keyA);
+                            var cardDataTwo = await this.reader.read(index, 16, 16);
+                            if (isSectorTrailer) {
+                                cardDataTwo = utils.convertHexStrtoBuffer(`${keyA}${utils.fastconvertBuffertoHexStr(cardDataTwo).slice(12)}`);
+                                if (this.accessData[index].kbr === -1 && keyB) cardDataTwo = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}${keyB}`);
+                                if (!keyB && this.accessData[index].kbr === -1) cardDataTwo = utils.convertHexStrtoBuffer(`${utils.fastconvertBuffertoHexStr(cardData).slice(0, -12)}00`);
+                            }
+                            returner.push(cardDataTwo);
+                        } catch (error) {
+                            returner.push(Buffer.from([]));
+                            continue;
                         }
-                        returner.push(cardDataTwo);
-                    } catch (error) {
-                        returner.push(Buffer.from([]));
-                        continue;
-                    }
-                    break;
-                case 2:
-                    try {
-                        if (!keyB) throw new Error("Couldn't find key B!");
-                        await this.reader.authenticate(index, KEY_TYPE_B, keyB);
-                        var cardDataThree = await this.reader.read(index, 16, 16);
-                        if (isSectorTrailer) {
-                            cardDataThree = utils.convertHexStrtoBuffer(`00${utils.fastconvertBuffertoHexStr(cardDataThree).slice(12)}`);
+                        break;
+                    case 2:
+                        try {
+                            if (!keyB) throw new Error("Couldn't find key B!");
+                            await this.reader.authenticate(index, KEY_TYPE_B, keyB);
+                            var cardDataThree = await this.reader.read(index, 16, 16);
+                            if (isSectorTrailer) {
+                                cardDataThree = utils.convertHexStrtoBuffer(`00${utils.fastconvertBuffertoHexStr(cardDataThree).slice(12)}`);
+                            }
+                            returner.push(cardDataThree);
+                        } catch (error) {
+                            returner.push(Buffer.from([]));
+                            continue;
                         }
-                        returner.push(cardDataThree);
-                    } catch (error) {
-                        returner.push(Buffer.from([]));
-                        continue;
-                    }
-                    break;
-                default:
-                    break;
+                        break;
+                    default:
+                        break;
                 }
             }
             resolve(returner);
@@ -203,11 +212,9 @@ class mf1k {
     }
 }
 
-class utils extends mf1k {
+class utils {
     static convertUint8toHexStr(uint8arr) {
-        if (!uint8arr) {
-            return "";
-        }
+        if (!uint8arr) return "";
 
         var hexStr = "";
         for (var i = 0; i < uint8arr.length; i++) {
@@ -217,14 +224,6 @@ class utils extends mf1k {
         }
 
         return hexStr.toUpperCase();
-    }
-    static fastconvertBuffertoHexStr(buf) {
-        if (!Buffer.isBuffer(buf)) return "";
-        return buf.toString("hex").toUpperCase();
-    }
-    static convertbufferToHexStrBlocks(buf) {
-        if (!Buffer.isBuffer(buf)) return "";
-        return this.fastconvertBuffertoHexStr(buf).match(/.{1,2}/g);
     }
     static convertHexStrtoBuffer(str) {
         if (!str) return Buffer.from("");
@@ -236,11 +235,19 @@ class utils extends mf1k {
 
         return Buffer.from(a);
     }
+    static fastconvertBuffertoHexStr(buf) {
+        if (!Buffer.isBuffer(buf)) return "";
+        return buf.toString("hex").toUpperCase();
+    }
+    static convertbufferToHexStrBlocks(buf) {
+        if (!Buffer.isBuffer(buf)) return "";
+        return this.fastconvertBuffertoHexStr(buf).match(/.{1,2}/g);
+    }
     static isHex(h) {
         var a = parseInt(h, 16);
         return (a.toString(16) === h.toLowerCase());
     }
-    static convertAC(ac,blockID) {
+    static convertAC(ac, blockID) {
         /*
             CONVERSION TABLE
                     7    6    5    4    3    2    1    0
@@ -262,23 +269,24 @@ class utils extends mf1k {
                     07  |   0   0   0   0   1   0   0   0
                     80  |   1   0   0   0   0   0   0   0
 
-                Cn TABLE FOR FF0780
-                        |   0   1   2   3
-                    ----|--------------------
-                    C1  |   0   0   0   0
-                    C2  |   0   0   0   0
-                    C3  |   0   0   0   1
+                    Cn TABLE FOR FF0780
+                            |   0   1   2   3
+                        ----|--------------------
+                        C1  |   0   0   0   0
+                        C2  |   0   0   0   0
+                        C3  |   0   0   0   1
 
         */
+
         if (Buffer.byteLength(ac) !== 3) return "";
-        if (!blockID || (blockID && typeof(blockID) !== "number")) return "";
+        if (!blockID || (blockID && typeof (blockID) !== "number")) return "";
 
         var returning = {};
 
         /*
         ## global card modes ##
 
-            -1 = Never
+           -1 = Never
             0 = Key A|B
             1 = Key A
             2 = Key B
@@ -417,7 +425,7 @@ class utils extends mf1k {
         };
         var unsafeBinary = ac.readUIntBE(0, ac.length).toString(2);
         if ((unsafeBinary.length % 24) !== 0) {
-            unsafeBinary = `${"0".repeat((24 - unsafeBinary.length))}${unsafeBinary}`;
+            unsafeBinary = unsafeBinary.padStart(24, "0");
         }
         var bytes = unsafeBinary.match(/.{1,8}/g),
             first = this.invertStringBinary(bytes[0]).split("").reverse(),
@@ -432,21 +440,21 @@ class utils extends mf1k {
             sThree = `${cFirst[3]}${cSecond[3]}${cThird[3]}`,
             bZero = blockID - 3,
             bOne = blockID - 2,
-            bTwo = blockID -1,
+            bTwo = blockID - 1,
             bThree = blockID;
 
         if (third.join("").match(/.{1,4}/g)[0] !== cSecond.join("") || third.join("").match(/.{1,4}/g)[1] !== cThird.join("")) throw new Error("there is a problem with the AC format");
 
-        returning[bZero] = dataDict[sZero],
-        returning[bOne] = dataDict[sOne],
-        returning[bTwo] = dataDict[sTwo],
+        returning[bZero] = dataDict[sZero];
+        returning[bOne] = dataDict[sOne];
+        returning[bTwo] = dataDict[sTwo];
         returning[bThree] = sectorDict[sThree];
 
         return returning;
     }
     static invertStringBinary(str, fromLast) {
         if (/[^01]+/g.test(str)) return;
-        if (fromLast && typeof(fromLast) === "number" && fromLast <! 0) {
+        if (fromLast && typeof (fromLast) === "number" && fromLast < !0) {
             return `${str.slice(0, -fromLast)}${str.slice(-fromLast).replace(/./g, x => x ^ 1)}`;
         } else {
             return str.replace(/./g, x => x ^ 1);
